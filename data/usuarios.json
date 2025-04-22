@@ -1,0 +1,10 @@
+{
+    "admin": {
+        "contrasena": "1234",
+        "tema": "dark"
+    },
+    "pepe": {
+        "contrasena": "1234",
+        "tema": "light"
+    }
+}

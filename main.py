@@ -1,9 +1,4 @@
-from gui import crear_interfaz  # Importa la interfaz
+from gui import crear_interfaz# Importa la interfaz
+from gui import ventana_login  # Importa la función de login
 
-app = crear_interfaz()  # Llama a la función de la GUI
-app.mainloop()  # Ejecuta la aplicación
-
-import numpy as np
-
-x = np.array[2,3]
-print(x)
+ventana_login()  # Esto inicia la ventana de login primero
