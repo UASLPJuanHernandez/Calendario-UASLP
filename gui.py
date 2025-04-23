@@ -9,11 +9,18 @@ from database import verificar_credenciales
 from database import agregar_usuario 
 from database import cambiar_tema_usuario
 from database import obtener_tema_usuario
+from database import agregar_evento
+from database import modificar_evento
+from database import eliminar_evento
+from database import filtrar_eventos
+
 
 
 # Al inicio de tu archivo
 modo_oscuro = True  # Variable global para recordar el modo
 usuario_logueado = None
+ventana_evento_abierta = None
+eventos_filtrados_global = []
 
 
 from PIL import Image
@@ -105,6 +112,46 @@ def crear_interfaz():
 
 
     horas= ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00']
+
+    def aplicar_filtros():
+        global eventos_filtrados_global
+
+        prioridad = mprioridad.get()
+        categoria_val = mcategoria.get()
+        ubicacion_val = mubicacion.get()
+        responsable_val = mresponsable.get()
+        estado_val = mestado.get()
+
+        fecha_inicio = fecha1_var.get() if fecha1_var.get() != "De esta fecha:" else None
+        fecha_fin = fecha2_var.get() if fecha2_var.get() != "A esta fecha:" else None
+
+        # Limpieza para convertir "Todas" u opciones no seleccionadas en None
+        if prioridad == "Todas" or prioridad == "Por prioridad:":
+            prioridad = None
+        if categoria_val == "Por tipo de evento:":
+            categoria_val = None
+        if ubicacion_val == "Por ubicacion:":
+            ubicacion_val = None
+        if responsable_val == "Por responsable:":
+            responsable_val = None
+        if estado_val == "Por estado:":
+            estado_val = None
+
+        eventos_filtrados, *_ = filtrar_eventos(
+            prioridad=prioridad,
+            categoria=categoria_val,
+            ubicacion=ubicacion_val,
+            responsable=responsable_val,
+            estado=estado_val,
+            fecha_inicio=fecha_inicio,
+            fecha_fin=fecha_fin
+        )
+
+        eventos_filtrados_global = eventos_filtrados
+        print(f"Eventos filtrados: {len(eventos_filtrados_global)} encontrados")
+
+        actualizar_calendario()
+
 
     def configventana():
         ventana = ctk.CTkToplevel()
@@ -208,6 +255,9 @@ def crear_interfaz():
     mestado.set("Por estado:")
     mestado.pack(pady=5, padx=10) 
 
+    
+
+
     def abrir_calendario(variable):
         top = Toplevel()
         top.title("Seleccionar fecha")
@@ -233,6 +283,13 @@ def crear_interfaz():
 
     btn_fecha2 = ctk.CTkButton(master=sidebar, textvariable=fecha2_var, command=lambda: abrir_calendario(fecha2_var))
     btn_fecha2.pack(pady=5, padx=10)
+
+    btn_aplicar_filtros = ctk.CTkButton(
+    sidebar,
+    text="Aplicar filtros",
+    command=lambda: aplicar_filtros()
+    )
+    btn_aplicar_filtros.pack(pady=10)
 
             # === BOTÓN DE REINICIO DE FILTROS ===
     btn_inicio = ctk.CTkButton(sidebar, text="Quitar filtros", command=lambda: print("Inicio"))
@@ -269,57 +326,103 @@ def crear_interfaz():
     calendario_frame = ctk.CTkFrame(mainarea)
     calendario_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
-    def abrir_ventana_modificar(evento):
-        ventana = ctk.CTkToplevel()
-        ventana.title("Modificar evento")
-        ventana.geometry("400x400")
-        ventana.grab_set()          # Hace la ventana modal
-        ventana.focus()             # Da el foco a la ventana emergente
-        ventana.transient(app) 
+    def eliminar_evento_y_actualizar(evento):
+        # Llama a la función eliminar_evento de la base de datos
+        exito = eliminar_evento(evento["nombre"], evento["fecha"])
 
-        entrada = ctk.CTkEntry(ventana, placeholder_text="Título del evento")
+        nombre_original = evento["nombre"]
+        fecha_original = evento["fecha"]
+
+        if exito:
+            print(f"Evento eliminado: {evento['nombre']} en la fecha {evento['fecha']}")
+            # Actualiza el calendario para reflejar los cambios
+            actualizar_calendario()
+         # Cierra la ventana de eventos
+            abrir_ventana_evento(fecha_original)
+        else:
+            print(f"Error: No se pudo eliminar el evento {evento['nombre']} en la fecha {evento['fecha']}")
+
+    def abrir_ventana_modificar(evento):
+        mventana = ctk.CTkToplevel()
+        mventana.title("Modificar evento")
+        mventana.geometry("400x400")
+        mventana.grab_set()          # Hace la ventana modal
+        mventana.focus()             # Da el foco a la ventana emergente
+        mventana.transient(app) 
+
+        nombre_original = evento["nombre"]
+        fecha_original = evento["fecha"]
+
+        entrada = ctk.CTkEntry(mventana, placeholder_text="Título del evento")
         entrada.pack(padx=10, pady=5)
 
-        emprioridad= ctk.CTkOptionMenu(ventana,values=prioridades, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emprioridad= ctk.CTkOptionMenu(mventana,values=prioridades, command=lambda valor: print(f"Filtrar por: {valor}"))
         emprioridad.set("Prioridad:")
         emprioridad.pack(padx=10, pady=5)
 
-        emcategoria = ctk.CTkOptionMenu(ventana, values=categoria, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emcategoria = ctk.CTkOptionMenu(mventana, values=categoria, command=lambda valor: print(f"Filtrar por: {valor}"))
         emcategoria.set("Tipo de evento:")
         emcategoria.pack(padx=10, pady=5)
 
-        emubicacion = ctk.CTkOptionMenu(ventana,values=ubicacion, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emubicacion = ctk.CTkOptionMenu(mventana,values=ubicacion, command=lambda valor: print(f"Filtrar por: {valor}"))
         emubicacion.set("Ubicacion:")
         emubicacion.pack(padx=10, pady=5)
 
-        emresponsable = ctk.CTkOptionMenu(ventana,values=responsable, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emresponsable = ctk.CTkOptionMenu(mventana,values=responsable, command=lambda valor: print(f"Filtrar por: {valor}"))
         emresponsable.set("Responsable:")
         emresponsable.pack(padx=10, pady=5)
 
-        emestado = ctk.CTkOptionMenu(ventana, values=estado, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emestado = ctk.CTkOptionMenu(mventana, values=estado, command=lambda valor: print(f"Filtrar por: {valor}"))
         emestado.set("Estado:")
         emestado.pack(padx=10, pady=5)
 
-        emhora = ctk.CTkOptionMenu(ventana, values=horas, command=lambda valor: print(f"Filtrar por: {valor}"))
+        emhora = ctk.CTkOptionMenu(mventana, values=horas, command=lambda valor: print(f"Filtrar por: {valor}"))
         emhora.set("Hora:")
         emhora.pack(padx=10, pady=5)
-
-
-
-
         
-
-    # Botón Guardar
+        # Botón Guardar
         def guardar_cambios():
-            evento["titulo"] = entrada.get()
-            evento["hora"] = emhora.get()
-            evento["prioridad"] = emprioridad.get()
-            print("Evento modificado:", evento)
-            ventana.destroy()
+            nuevos_datos = {
+                "nombre": entrada.get(),
+                "prioridad": emprioridad.get(),
+                "categoria": emcategoria.get(),
+                "ubicacion": emubicacion.get(),
+                "responsable": emresponsable.get(),
+                "estado": emestado.get(),
+                "hora": emhora.get()
+            }
 
-        ctk.CTkButton(ventana, text="Guardar cambios", command=guardar_cambios).pack(pady=20)
+            print("Modificando evento:", nombre_original, fecha_original)
+            print("Nuevos datos:", nuevos_datos)
+
+            exito = modificar_evento(nombre_original, fecha_original, nuevos_datos)
+
+            if exito:
+                # Acceder a la lista de eventos global
+                print("Evento modificado:", nuevos_datos)
+                # Actualizar el calendario para reflejar los cambios
+                actualizar_calendario()
+                mventana.destroy()
+                abrir_ventana_evento(fecha_original)
+
+            else:
+                print("Error: No se pudo modificar el evento.")
+
+            # Cerrar la ventana de modificación
+
+
+        ctk.CTkButton(mventana, text="Guardar cambios", command=guardar_cambios).pack(pady=20)
 
     def abrir_ventana_evento(fecha):
+
+        global ventana_evento_abierta
+
+        if ventana_evento_abierta is not None and ventana_evento_abierta.winfo_exists():
+            ventana_evento_abierta.destroy()
+
+        eventos_actualizados = cargar_eventos()
+
+
         ventana = ctk.CTkToplevel()
         ventana.title("Agregar evento")
         ventana.geometry("1000x600")
@@ -327,6 +430,8 @@ def crear_interfaz():
         ventana.grab_set()          # Hace la ventana modal
         ventana.focus()             # Da el foco a la ventana emergente
         ventana.transient(app)      # La mantiene por encima de la principal
+
+        ventana_evento_abierta = ventana  # Guardar la referencia de la ventana abierta
 
         textagevento = ctk.CTkLabel(ventana, text=f"Agregar evento para el {fecha}", font=ctk.CTkFont(size=15, weight="bold"))
         textagevento.pack(anchor="ne", padx=10, pady=(10, 0))
@@ -359,16 +464,32 @@ def crear_interfaz():
         entrada.pack(anchor="ne", padx=10, pady=5)
 
         def guardar_evento():
-            evento = entrada.get()
-            if evento:
-                eventos.append({"fecha": fecha,"titulo": entrada.get(),"prioridad": emprioridad.get(),"categoria": emcategoria.get(),"ubicacion": emubicacion.get(),"responsable": emresponsable.get(),"estado": emestado.get(),"hora": emhora.get()})
+            titulo = entrada.get()
+            if titulo:
+                # Agregar el evento a la base de datos y a la lista global
+                nuevo_evento = {
+                    "nombre": titulo,
+                    "fecha": fecha,
+                    "hora": emhora.get(),
+                    "prioridad": emprioridad.get(),
+                    "responsable": emresponsable.get(),
+                    "categoria": emcategoria.get(),
+                    "ubicacion": emubicacion.get(),
+                    "estado": emestado.get()
+                }
+                agregar_evento(**nuevo_evento)  # Guardar en la base de datos
+                eventos.append(nuevo_evento)   # Agregar a la lista global
 
-                print("Evento guardado:", evento)
+                print("Evento guardado:", titulo)
+
+                # Actualizar el calendario y cerrar la ventana
                 actualizar_calendario()
-                ventana.destroy()
+            ventana.destroy()
+
 
         guardbutt=ctk.CTkButton(ventana, text="Guardar", command=guardar_evento)
         guardbutt.pack(anchor="ne", padx=10, pady=5)
+
 
 
     # === SCROLLABLE FRAME para mostrar eventos del día ===
@@ -378,7 +499,7 @@ def crear_interfaz():
         ctk.CTkLabel(frame_scroll, text="Eventos del día:", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="nw", padx=5, pady=(5, 10))
 
     # Filtrar eventos para la fecha
-        eventos_del_dia = [ev for ev in eventos if ev["fecha"] == fecha]
+        eventos_del_dia = [ev for ev in eventos_actualizados if ev["fecha"] == fecha]
 
         if eventos_del_dia:
             for i, ev in enumerate(eventos_del_dia):
@@ -386,7 +507,7 @@ def crear_interfaz():
                 evento_frame.pack(fill="x", padx=5, pady=5)
 
             # Título del evento
-                ctk.CTkLabel(evento_frame, text=ev.get("titulo", "Sin título"), font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
+                ctk.CTkLabel(evento_frame, text=ev.get("nombre", "Sin título"), font=ctk.CTkFont(size=14, weight="bold")).pack(anchor="w", padx=10, pady=(5, 0))
 
             # Propiedades adicionales (si existen)
                 propiedades = [
@@ -404,7 +525,12 @@ def crear_interfaz():
                         ctk.CTkLabel(evento_frame, text=texto, font=ctk.CTkFont(size=12), text_color="gray").pack(anchor="w", padx=20)
 
                 # Botón de eliminar (por ahora sin funcionalidad)
-                btn_eliminar = ctk.CTkButton(evento_frame, text="🗑", width=30, fg_color="red", hover_color="#aa0000", text_color="white", command=lambda e=ev: print("Eliminar:", e))
+
+                def combinar():
+                    eliminar_evento_y_actualizar(ev)
+                    ventana.destroy()
+                    
+                btn_eliminar = ctk.CTkButton(evento_frame, text="🗑", width=30, fg_color="red", hover_color="#aa0000", text_color="white", command=lambda e=ev: combinar() )
                 btn_eliminar.pack(side="right", padx=5, pady=(0, 5))
 
                 # Botón de modificar (por ahora sin funcionalidad)
@@ -428,6 +554,9 @@ def crear_interfaz():
 
 
     def actualizar_calendario():
+
+        eventos_actualizados = cargar_eventos()  # Esto carga el archivo JSON actualizado
+
         for widget in calendario_frame.winfo_children():
             widget.destroy()
 
@@ -456,17 +585,19 @@ def crear_interfaz():
                 fecha_str = f"{año_actual[0]}-{mes_actual[0]:02d}-{dia:02d}"
                 celda.bind("<Button-1>", lambda e, f=fecha_str: abrir_ventana_evento(f))
 
-                eventos_del_dia    = [ev for ev in eventos if ev["fecha"] == fecha_str]
+                eventos_del_dia    = [ev for ev in eventos_actualizados if ev["fecha"] == fecha_str]
                 for i, ev in enumerate(eventos_del_dia[:3]):
-                    ev_label = ctk.CTkLabel(celda, text=f"• {ev['titulo']}", font=ctk.CTkFont(size=10), text_color="#a0a0a0")
-                    ev_label.place(x=4, y=25 + i * 18)
-                    ev_label.bind("<Button-1>", lambda e, f=fecha_str: abrir_ventana_evento(f))
+                    titulo = ev.get("nombre", "Sin título")  # Obtiene el título del evento o usa "Sin título" si no existe
+                    ev_label = ctk.CTkLabel(celda, text=f"• {titulo}", font=ctk.CTkFont(size=10), text_color="#a0a0a0")
+                    ev_label.place(x=4, y=25 + i * 18)  # Posiciona los títulos en la celda
+                    ev_label.bind("<Button-1>", lambda e, f=fecha_str: abrir_ventana_evento(f))  # Asocia un evento al hacer clic
 
                 if len(eventos_del_dia) > 3:
                     mas_label = ctk.CTkLabel(celda, text="más...", font=ctk.CTkFont(size=10, slant="italic"), text_color="#6c6c6c")
                     mas_label.place(x=4, y=25 + 3 * 18)
                     mas_label.bind("<Button-1>", lambda e, f=fecha_str: abrir_ventana_evento(f))
 
+    
 
     def cambiar_mes(direccion):
         mes_actual[0] += direccion

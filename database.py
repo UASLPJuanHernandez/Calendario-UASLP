@@ -11,7 +11,14 @@ def cargar_eventos():
             json.dump([], f)
 
     with open(RUTA_ARCHIVO, "r") as f:
-        return json.load(f)
+        try:
+            datos = json.load(f)
+            if isinstance(datos, list):
+                return datos
+            else:
+                return []  # si por error hay un dict, lo ignora
+        except json.JSONDecodeError:
+            return []
 
 def guardar_eventos(eventos):
     with open(RUTA_ARCHIVO, "w") as f:
@@ -37,26 +44,26 @@ def filtrar_eventos(prioridad=None, categoria=None, ubicacion=None, responsable=
     eventos_filtrados = []
 
     for evento in eventos:
-        fecha_evento = datetime.strptime(evento["fecha"], "%Y-%m-%d")
-
-        if prioridad and evento["prioridad"] != prioridad:
+        if prioridad and evento.get("prioridad") != prioridad:
             continue
-        if categoria and evento["categoria"] != categoria:
+        if categoria and evento.get("categoria") != categoria:
             continue
-        if ubicacion and evento["ubicacion"] != ubicacion:
+        if ubicacion and evento.get("ubicacion") != ubicacion:
             continue
-        if responsable and evento["responsable"] != responsable:
+        if responsable and evento.get("responsable") != responsable:
             continue
-        if estado and evento["estado"] != estado:
+        if estado and evento.get("estado") != estado:
             continue
-        if fecha_inicio and fecha_evento < datetime.strptime(fecha_inicio, "%Y-%m-%d"):
+        if fecha_inicio and datetime.strptime(evento.get("fecha"), "%Y-%m-%d") < datetime.strptime(fecha_inicio, "%Y-%m-%d"):
             continue
-        if fecha_fin and fecha_evento > datetime.strptime(fecha_fin, "%Y-%m-%d"):
+        if fecha_fin and datetime.strptime(evento.get("fecha"), "%Y-%m-%d") > datetime.strptime(fecha_fin, "%Y-%m-%d"):
             continue
 
         eventos_filtrados.append(evento)
 
+    # Asegúrate de que siempre devuelvas la lista de eventos
     return eventos_filtrados
+
 
 def modificar_evento(nombre_original, fecha_original, nuevos_datos):
     eventos = cargar_eventos()
@@ -64,9 +71,7 @@ def modificar_evento(nombre_original, fecha_original, nuevos_datos):
 
     for evento in eventos:
         if evento["nombre"] == nombre_original and evento["fecha"] == fecha_original:
-            for clave in nuevos_datos:
-                if clave in evento:
-                    evento[clave] = nuevos_datos[clave]
+            evento.update(nuevos_datos)  # Actualiza los datos del evento
             evento_modificado = True
             break
 
@@ -85,6 +90,8 @@ def eliminar_evento(nombre, fecha):
         return True
     else:
         return False
+    
+
 
 # ---------- USUARIOS ----------
 RUTA_USUARIOS = "data/usuarios.json"

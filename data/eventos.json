@@ -1,1 +1,22 @@
-{}
+[
+    {
+        "nombre": "e",
+        "fecha": "2025-04-11",
+        "hora": "Hora:",
+        "prioridad": "Prioridad:",
+        "responsable": "Responsable:",
+        "categoria": "Tipo de evento:",
+        "ubicacion": "Ubicacion:",
+        "estado": "Estado:"
+    },
+    {
+        "nombre": "eeeeee",
+        "fecha": "2025-04-25",
+        "hora": "Hora:",
+        "prioridad": "Prioridad:",
+        "responsable": "Responsable:",
+        "categoria": "Tipo de evento:",
+        "ubicacion": "Ubicacion:",
+        "estado": "Estado:"
+    }
+]
